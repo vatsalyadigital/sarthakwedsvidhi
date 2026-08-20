@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: wedding-erp
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: echo "No build step needed — zero dependencies."
+    startCommand: bash scripts/start.sh
+    autoDeploy: true
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: wedding-data
+      mountPath: /data
+      sizeGB: 1
