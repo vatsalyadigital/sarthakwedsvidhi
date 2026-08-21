@@ -31,7 +31,6 @@ export function registerAuthRoutes(router) {
           </div>
           <button type="submit" class="btn btn-block btn-lg">Sign in</button>
         </form>
-        <p class="small muted" style="margin-top:18px;">Demo logins — see the README for the full list of role-based accounts.</p>
       </div>`,
     });
     sendHtml(ctx.res, html);

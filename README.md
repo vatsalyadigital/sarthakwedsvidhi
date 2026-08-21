@@ -33,26 +33,21 @@ later; the data model and business logic here translate directly.
 ## Quick start
 
 ```bash
-node src/seed.js      # creates demo users + realistic sample data (safe to re-run)
+node src/seed.js      # (re)creates the 3 super admin accounts — wipes all other data
 node src/server.js    # starts the server on http://localhost:4000
 ```
 
-Requires Node **22.5+** (for `node:sqlite`). Check with `node -v`.
+Requires Node **22.5+** (for `node:sqlite`).
 
-### Demo logins
+### Admin logins
 
-All passwords are `password123`.
+`src/seed.js` creates three Super Admin accounts (Sarthak Kalra, Niharika Kaushal, Abhinav
+Kalra — see that file for current emails). All three share one password, set via the
+`SEED_ADMIN_PASSWORD` environment variable — set it in your host's dashboard (never commit
+it to this repo). If it's unset, a random password is generated each time and printed to
+the console/deploy logs, since this repo is public.
 
-| Role | Email | Can do |
-|---|---|---|
-| Super Admin | admin@wedding.test | Everything |
-| Finance | finance@wedding.test | Expenses, payments, budget, reports |
-| Guest Manager | guests@wedding.test | Guests, Aadhaar/KYC, rooms |
-| Vendor Manager | vendors@wedding.test | Vendors, contracts, payments |
-| Viewer | viewer@wedding.test | Read-only everywhere |
-
-Change these before putting this in front of real guests — see **Settings → Team & roles**
-once logged in as Super Admin, or edit directly in `src/seed.js`.
+Manage team members and roles from **Settings → Team & roles** once logged in as Super Admin.
 
 ## What's in the demo data
 

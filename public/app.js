@@ -1,10 +1,45 @@
-// Confirm before any destructive form submit
+// Confirm before any destructive form submit, using a custom in-page modal
+// rather than window.confirm(). Browsers permanently mute repeated native
+// dialogs after a few dismissals on the same page — after that, confirm()
+// returns false with no visible popup at all, so the submit is silently
+// blocked and the button just looks broken.
+function showConfirmModal(message, onConfirm) {
+  const overlay = document.createElement("div");
+  overlay.style.cssText =
+    "position:fixed;inset:0;background:rgba(43,38,32,0.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;";
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:22px 24px;max-width:380px;box-shadow:0 20px 50px rgba(0,0,0,0.25);">
+      <p style="margin:0 0 18px;color:#2b2620;font-size:14px;line-height:1.5;"></p>
+      <div style="display:flex;justify-content:flex-end;gap:10px;">
+        <button type="button" class="btn btn-secondary btn-sm" data-role="cancel">Cancel</button>
+        <button type="button" class="btn btn-danger btn-sm" data-role="ok">Confirm</button>
+      </div>
+    </div>`;
+  overlay.querySelector("p").textContent = message;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector('[data-role="cancel"]').addEventListener("click", close);
+  overlay.querySelector('[data-role="ok"]').addEventListener("click", () => {
+    close();
+    onConfirm();
+  });
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) close();
+  });
+}
+
 document.addEventListener("submit", (e) => {
   const form = e.target;
-  if (form.dataset.confirm) {
-    if (!confirm(form.dataset.confirm)) {
-      e.preventDefault();
-    }
+  // A submit button can carry its own data-confirm (e.g. a "Delete" button
+  // using formaction to repurpose a shared form) instead of the form itself.
+  const message = e.submitter?.dataset.confirm || form.dataset.confirm;
+  if (message && !form.dataset.confirmed) {
+    e.preventDefault();
+    showConfirmModal(message, () => {
+      form.dataset.confirmed = "1";
+      if (form.requestSubmit) form.requestSubmit(e.submitter);
+      else form.submit();
+    });
   }
 });
 
