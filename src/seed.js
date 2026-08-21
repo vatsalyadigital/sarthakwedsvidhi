@@ -22,11 +22,17 @@ try {
   db.exec(`DELETE FROM sqlite_sequence`);
 
   // ------------------------------------------------------------- Super admins
+  // SEED_ADMIN_PASSWORD lets the deployment set a fixed initial password (via
+  // Render's dashboard env vars, never committed to git) so it survives a
+  // reseed. Falls back to a random one-time password if unset.
+  const initialPassword = process.env.SEED_ADMIN_PASSWORD || randomPassword();
+  const usingFixedPassword = Boolean(process.env.SEED_ADMIN_PASSWORD);
+
   const admins = [
     { name: "Sarthak Kalra", email: "skalra987@gmail.com" },
-    { name: "Niharika Kaushal", email: "niharika.kaushal@vatsalyadigital.com" },
-    { name: "Abhinav Kalra", email: "abhinavkal@gmail.com" },
-  ].map((a) => ({ ...a, password: randomPassword() }));
+    { name: "Niharika Kaushal", email: "niharikakaushal@gmail.com" },
+    { name: "Abhinav Kalra", email: "abhinavkalra_6@yahoo.co.in" },
+  ].map((a) => ({ ...a, password: initialPassword }));
 
   for (const a of admins) {
     run("INSERT INTO users (name, email, password_hash, role) VALUES (?,?,?,?)", [a.name, a.email, hashPassword(a.password), "SUPER_ADMIN"]);
@@ -40,7 +46,11 @@ try {
 
   db.exec("COMMIT");
   console.log("Seed complete.\n");
-  console.log("Super admin logins (temporary passwords — change these immediately after signing in):");
+  if (usingFixedPassword) {
+    console.log("Super admin logins (using SEED_ADMIN_PASSWORD from environment):");
+  } else {
+    console.log("Super admin logins (temporary passwords — change these immediately after signing in):");
+  }
   for (const a of admins) console.log(`  ${a.email.padEnd(38)} ${a.password}`);
 } catch (err) {
   db.exec("ROLLBACK");
