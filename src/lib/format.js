@@ -53,14 +53,6 @@ export function escapeHtml(str) {
     .replaceAll("'", "&#39;");
 }
 
-export function maskAadhaar(number) {
-  if (!number) return "—";
-  const digits = String(number).replace(/\D/g, "");
-  if (digits.length < 4) return "XXXX XXXX XXXX";
-  const last4 = digits.slice(-4);
-  return `XXXX XXXX ${last4}`;
-}
-
 export function slugify(str) {
   return String(str).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }

@@ -1,15 +1,8 @@
 import { get, run } from "../lib/db.js";
 import { sendHtml, redirect } from "../lib/router.js";
 import { authPage, icon, badge } from "../lib/render.js";
-import { escapeHtml, formatDate, maskAadhaar } from "../lib/format.js";
+import { escapeHtml, formatDate } from "../lib/format.js";
 import { GUEST_STATUSES } from "../lib/constants.js";
-
-function kycVariant(status) {
-  if (status === "Verified") return "good";
-  if (status === "Submitted") return "gold";
-  if (status === "Rejected") return "critical";
-  return "warning";
-}
 
 export function registerGuestPortalRoutes(router) {
   router.get("/guest/secure/:token", (ctx) => {
@@ -29,7 +22,7 @@ export function registerGuestPortalRoutes(router) {
         <h1>Complete Your Wedding Stay Details</h1>
         <p>Hi ${escapeHtml(g.full_name.split(" ")[0])}, please confirm your details below.</p>
       </div>
-      <div class="status-strip">${badge(g.status, "gold")} ${badge("KYC: " + g.kyc_status, kycVariant(g.kyc_status))}</div>
+      <div class="status-strip">${badge(g.status, "gold")}</div>
       ${saved ? `<div class="flash success" style="margin-bottom:16px;">Thank you — your details were saved.</div>` : ""}
 
       ${room ? `<div class="card" style="margin-bottom:18px;">
@@ -64,18 +57,6 @@ export function registerGuestPortalRoutes(router) {
             <div class="field"><label>Special requirements</label><input type="text" name="special_requirements" value="${escapeHtml(g.special_requirements || "")}" /></div>
           </div>
 
-          <div class="section-title">Identity verification (KYC)</div>
-          <div class="consent-box">
-            By submitting, you consent to sharing your Aadhaar number with the organizing family solely for hotel
-            check-in and room allocation purposes. It is stored securely, shown only to authorized organizers, and
-            never displayed publicly. Currently submitted: <strong>${maskAadhaar(g.aadhaar_number)}</strong>.
-          </div>
-          <div class="field-row">
-            <div class="field"><label>Aadhaar number</label><input type="text" name="aadhaar_number" placeholder="XXXX XXXX XXXX" maxlength="14" /></div>
-            <div class="field"><label>Date of birth</label><input type="date" name="aadhaar_dob" value="${escapeHtml(g.aadhaar_dob || "")}" /></div>
-          </div>
-          <label class="checkbox-row" style="margin-bottom:16px;"><input type="checkbox" name="consent" value="1" ${g.kyc_consent ? "checked" : ""} /> I consent to sharing my details and Aadhaar number as described above.</label>
-
           <button type="submit" class="btn btn-lg btn-block">Save my details</button>
         </form>
       </div>
@@ -89,19 +70,12 @@ export function registerGuestPortalRoutes(router) {
     if (!g) return redirect(ctx.res, "/guest/secure/" + ctx.params.token);
     const b = ctx.body;
 
-    const aadhaarProvided = b.aadhaar_number && b.aadhaar_number.replace(/\D/g, "").length >= 12;
-    const newKycStatus = aadhaarProvided ? "Submitted" : g.kyc_status;
-
     run(
-      `UPDATE guests SET full_name=?, mobile=?, accompanying_count=?, status=?, arrival_date=?, arrival_time=?, departure_date=?, departure_time=?, travel_details=?, food_preference=?, special_requirements=?,
-       aadhaar_number = CASE WHEN ? != '' THEN ? ELSE aadhaar_number END,
-       aadhaar_dob = ?, kyc_consent=?, kyc_status=?, kyc_submitted_at = CASE WHEN ? != '' THEN datetime('now') ELSE kyc_submitted_at END
+      `UPDATE guests SET full_name=?, mobile=?, accompanying_count=?, status=?, arrival_date=?, arrival_time=?, departure_date=?, departure_time=?, travel_details=?, food_preference=?, special_requirements=?
        WHERE id=?`,
       [
         b.full_name, b.mobile, Number(b.accompanying_count) || 0, b.status, b.arrival_date, b.arrival_time,
         b.departure_date, b.departure_time, b.travel_details, b.food_preference, b.special_requirements,
-        b.aadhaar_number || "", b.aadhaar_number || "",
-        b.aadhaar_dob, b.consent ? 1 : 0, newKycStatus, b.aadhaar_number || "",
         g.id,
       ]
     );

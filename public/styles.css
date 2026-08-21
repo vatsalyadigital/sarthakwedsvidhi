@@ -187,19 +187,30 @@ a:hover { text-decoration: underline; }
 /* ---------------------------------------------------------------- Stat tiles */
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 20px; }
 .stat-tile {
+  display: block;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 16px 18px;
   box-shadow: var(--shadow-card);
+  color: inherit;
 }
 .stat-label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: var(--ink-muted); margin-bottom: 7px; }
-.stat-value { font-size: 23px; font-weight: 800; letter-spacing: -0.01em; font-family: "Playfair Display", serif; }
+.stat-value { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; font-family: "Manrope", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 .stat-sub { font-size: 12px; color: var(--ink-muted); margin-top: 5px; }
 .stat-tile.accent-good .stat-value { color: var(--good); }
 .stat-tile.accent-warning .stat-value { color: var(--warning); }
 .stat-tile.accent-critical .stat-value { color: var(--critical); }
 .stat-tile.accent-gold .stat-value { color: var(--gold-dark); }
+.stat-tile-link { transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease; cursor: pointer; text-decoration: none; }
+.stat-tile-link:hover { transform: translateY(-2px); box-shadow: var(--shadow-pop); border-color: var(--gold-soft-border); text-decoration: none; }
+
+.card-title-link { color: inherit; text-decoration: none; }
+.card-title-link:hover { color: var(--gold-dark); text-decoration: underline; }
+
+.hbar-row-link { color: inherit; text-decoration: none; border-radius: 8px; padding: 2px 6px; margin: -2px -6px; transition: background 0.12s ease; }
+.hbar-row-link:hover { background: var(--surface-alt); text-decoration: none; }
+.hbar-row-link:hover .hbar-label { color: var(--gold-dark); }
 
 /* ---------------------------------------------------------------- Buttons */
 .btn {

@@ -59,18 +59,6 @@ export function computeAlerts() {
     });
   }
 
-  // Missing / rejected KYC
-  const missingKyc = all(
-    `SELECT * FROM guests WHERE status != 'Not Coming' AND kyc_status IN ('Pending','Rejected')`
-  );
-  if (missingKyc.length) {
-    alerts.push({
-      severity: "warning",
-      text: `${missingKyc.length} guest${missingKyc.length === 1 ? "" : "s"} missing Aadhaar/KYC verification`,
-      href: `/kyc`,
-    });
-  }
-
   // Room capacity exceeded
   const rooms = all(
     `SELECT r.*, (SELECT COUNT(*) FROM room_allocations ra WHERE ra.room_id = r.id AND ra.checked_out_at IS NULL) as occ

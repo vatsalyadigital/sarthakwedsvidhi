@@ -154,13 +154,6 @@ CREATE TABLE IF NOT EXISTS guests (
   notes TEXT,
   status TEXT NOT NULL DEFAULT 'Invited',
   portal_token TEXT UNIQUE,
-  kyc_status TEXT NOT NULL DEFAULT 'Pending',
-  aadhaar_number TEXT,
-  aadhaar_dob TEXT,
-  kyc_consent INTEGER DEFAULT 0,
-  kyc_submitted_at TEXT,
-  kyc_reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  kyc_review_notes TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -179,9 +172,9 @@ CREATE TABLE IF NOT EXISTS rooms (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   hotel_id INTEGER NOT NULL REFERENCES hotels(id) ON DELETE CASCADE,
   room_number TEXT NOT NULL,
-  room_type TEXT NOT NULL DEFAULT 'Double',
+  room_type TEXT NOT NULL DEFAULT 'Superior',
   floor TEXT,
-  max_occupancy INTEGER NOT NULL DEFAULT 2,
+  max_occupancy INTEGER NOT NULL DEFAULT 3,
   bed_configuration TEXT,
   rate REAL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'Available'

@@ -28,28 +28,28 @@ export function registerDashboardRoutes(router) {
     }
 
     const stats = [
-      { label: "Total Wedding Budget", value: formatINR(totals.totalBudget), sub: wedding?.wedding_date ? formatDate(wedding.wedding_date) + (daysToGo ? " · " + daysToGo : "") : "" },
-      { label: "Total Estimated Cost", value: formatINR(totals.totalEstimated), sub: "Sum of final vendor contracts", accent: "gold" },
-      { label: "Total Paid", value: formatINR(totals.totalPaid), sub: "Vendor payments", accent: "good" },
-      { label: "Total Outstanding", value: formatINR(totals.totalOutstanding), sub: "Still owed", accent: totals.totalOutstanding > 0 ? "warning" : "good" },
-      { label: "Vendors", value: String(totals.vendorCount), sub: "onboarded" },
-      { label: "Guests", value: String(totals.guestCount), sub: "in the guest list" },
-      { label: "Rooms Allocated", value: String(totals.roomsAllocated), sub: `of ${totals.totalRooms} total`, accent: "good" },
-      { label: "Rooms Pending", value: String(totals.roomsPending), sub: "not yet allocated", accent: totals.roomsPending > 0 ? "warning" : "good" },
-      { label: "Upcoming Payments", value: String(upcomingPayments), sub: "due soon" },
-      { label: "Upcoming Functions", value: String(upcomingFunctions), sub: "scheduled ahead" },
+      { label: "Total Wedding Budget", value: formatINR(totals.totalBudget), sub: wedding?.wedding_date ? formatDate(wedding.wedding_date) + (daysToGo ? " · " + daysToGo : "") : "", href: "/wedding" },
+      { label: "Total Estimated Cost", value: formatINR(totals.totalEstimated), sub: "Sum of final vendor contracts", accent: "gold", href: "/budget" },
+      { label: "Total Paid", value: formatINR(totals.totalPaid), sub: "Vendor payments", accent: "good", href: "/reports/financial" },
+      { label: "Total Outstanding", value: formatINR(totals.totalOutstanding), sub: "Still owed", accent: totals.totalOutstanding > 0 ? "warning" : "good", href: "/reports/financial" },
+      { label: "Vendors", value: String(totals.vendorCount), sub: "onboarded", href: "/vendors" },
+      { label: "Guests", value: String(totals.guestCount), sub: "in the guest list", href: "/guests" },
+      { label: "Rooms Allocated", value: String(totals.roomsAllocated), sub: `of ${totals.totalRooms} total`, accent: "good", href: "/rooms" },
+      { label: "Rooms Pending", value: String(totals.roomsPending), sub: "not yet allocated", accent: totals.roomsPending > 0 ? "warning" : "good", href: "/rooms" },
+      { label: "Upcoming Payments", value: String(upcomingPayments), sub: "due soon", href: "/vendors" },
+      { label: "Upcoming Functions", value: String(upcomingFunctions), sub: "scheduled ahead", href: "/functions" },
     ];
 
     // Estimated cost by category (final vendor rates, grouped by vendor category)
     const byCategory = all(`SELECT DISTINCT category FROM vendors`)
-      .map((r) => ({ label: r.category, value: categoryEstimated(r.category) }))
+      .map((r) => ({ label: r.category, value: categoryEstimated(r.category), href: `/vendors?category=${encodeURIComponent(r.category)}` }))
       .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value);
 
     // Vendor-wise spending (final contract amount per vendor)
     const vendors = all(`SELECT * FROM vendors`);
     const vendorSpend = vendors
-      .map((v) => ({ label: v.name, value: vendorSummary(v).finalAmount }))
+      .map((v) => ({ label: v.name, value: vendorSummary(v).finalAmount, href: `/vendors/${v.id}` }))
       .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
@@ -71,7 +71,7 @@ export function registerDashboardRoutes(router) {
 
       <div class="grid grid-2">
         <div class="card">
-          <h2>Budget vs Estimated Cost</h2>
+          <h2><a href="/budget" class="card-title-link">Budget vs Estimated Cost</a></h2>
           ${hbarChart(
             [
               { label: "Budget", value: totals.totalBudget, color: "#c9bda0" },
@@ -81,7 +81,7 @@ export function registerDashboardRoutes(router) {
           )}
         </div>
         <div class="card">
-          <h2>Paid vs Outstanding</h2>
+          <h2><a href="/reports/financial" class="card-title-link">Paid vs Outstanding</a></h2>
           ${stackedBar({
             segments: [
               { label: "Paid", value: totals.totalPaid, color: CHART_COLORS.good },
@@ -93,11 +93,11 @@ export function registerDashboardRoutes(router) {
 
       <div class="grid grid-2" style="margin-top:18px;">
         <div class="card">
-          <h2>Estimated Cost by Category</h2>
+          <h2><a href="/budget" class="card-title-link">Estimated Cost by Category</a></h2>
           ${hbarChart(byCategory, { color: CHART_COLORS.blue, emptyText: "No vendors with a category yet." })}
         </div>
         <div class="card">
-          <h2>Vendor-wise Spending</h2>
+          <h2><a href="/vendors" class="card-title-link">Vendor-wise Spending</a></h2>
           ${hbarChart(vendorSpend, { color: CHART_COLORS.aqua, emptyText: "No vendor spending yet." })}
         </div>
       </div>

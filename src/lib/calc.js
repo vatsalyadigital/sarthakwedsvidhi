@@ -1,4 +1,5 @@
-import { all, get } from "./db.js";
+import { all, get, run } from "./db.js";
+import { MAX_ROOM_OCCUPANCY } from "./constants.js";
 
 export function vendorFinalContractAmount(vendor) {
   const base = Number(vendor.contract_value) || 0;
@@ -65,6 +66,20 @@ export function roomOccupancy(roomId) {
     [roomId]
   );
   return rows;
+}
+
+// Shared by the room-centric (Rooms page) and guest-centric (Guest detail
+// page) allocation forms so the max-3-guests-per-room cap is enforced
+// exactly once, in one place.
+export function allocateGuestToRoom(roomId, guestId) {
+  const room = get("SELECT * FROM rooms WHERE id = ?", [roomId]);
+  if (!room) return { ok: false, error: "Room not found." };
+  const cap = Math.min(Number(room.max_occupancy) || MAX_ROOM_OCCUPANCY, MAX_ROOM_OCCUPANCY);
+  const occupied = roomOccupancy(roomId).length;
+  if (occupied >= cap) return { ok: false, error: `Room ${room.room_number} is already at full capacity (max ${MAX_ROOM_OCCUPANCY} guests).` };
+  run("INSERT INTO room_allocations (room_id, guest_id) VALUES (?, ?)", [roomId, guestId]);
+  if (room.status === "Available") run("UPDATE rooms SET status='Occupied' WHERE id=?", [roomId]);
+  return { ok: true };
 }
 
 export function dashboardTotals() {

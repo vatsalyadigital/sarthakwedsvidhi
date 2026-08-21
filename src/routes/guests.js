@@ -3,9 +3,10 @@ import { all, get, run } from "../lib/db.js";
 import { requireUser, requireWrite } from "../lib/guard.js";
 import { sendHtml, redirect, sendCsv, toCsv } from "../lib/router.js";
 import { page, badge, icon, emptyState } from "../lib/render.js";
-import { escapeHtml, formatDate, maskAadhaar } from "../lib/format.js";
+import { escapeHtml, formatDate } from "../lib/format.js";
 import { logAudit } from "../lib/audit.js";
-import { canWrite, GUEST_STATUSES } from "../lib/constants.js";
+import { canWrite, GUEST_STATUSES, MAX_ROOM_OCCUPANCY } from "../lib/constants.js";
+import { allocateGuestToRoom } from "../lib/calc.js";
 
 function newToken() {
   return crypto.randomBytes(16).toString("hex");
@@ -16,13 +17,6 @@ function statusVariant(status) {
   if (status === "Confirmed" || status === "Arrived") return "gold";
   if (status === "Not Coming") return "critical";
   return "neutral";
-}
-
-function kycVariant(status) {
-  if (status === "Verified") return "good";
-  if (status === "Submitted") return "gold";
-  if (status === "Rejected") return "critical";
-  return "warning";
 }
 
 function guestForm(g = {}, groups = []) {
@@ -94,7 +88,6 @@ export function registerGuestRoutes(router) {
           <td>${escapeHtml(g.mobile || "—")}</td>
           <td>${g.arrival_date ? formatDate(g.arrival_date) : "—"}</td>
           <td>${room ? `${escapeHtml(room.room_number)} <span class="small muted">(${escapeHtml(room.hotel_name)})</span>` : `<span class="muted small">Unallocated</span>`}</td>
-          <td>${badge(g.kyc_status, kycVariant(g.kyc_status))}</td>
           <td>${badge(g.status, statusVariant(g.status))}</td>
         </tr>`;
       })
@@ -117,8 +110,8 @@ export function registerGuestRoutes(router) {
           <button class="btn btn-secondary btn-sm">Filter</button>
         </form>
         <div class="table-wrap">
-          <table><thead><tr><th>Name</th><th>Family</th><th>Mobile</th><th>Arrival</th><th>Room</th><th>KYC</th><th>Status</th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="7">${emptyState("No guests match — add one to get started.")}</td></tr>`}</tbody></table>
+          <table><thead><tr><th>Name</th><th>Family</th><th>Mobile</th><th>Arrival</th><th>Room</th><th>Status</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="6">${emptyState("No guests match — add one to get started.")}</td></tr>`}</tbody></table>
         </div>
       </div>
     `;
@@ -133,7 +126,7 @@ export function registerGuestRoutes(router) {
       { label: "Name", value: "full_name" }, { label: "Family", value: "group_name" },
       { label: "Mobile", value: "mobile" }, { label: "Email", value: "email" },
       { label: "Arrival Date", value: "arrival_date" }, { label: "Departure Date", value: "departure_date" },
-      { label: "Status", value: "status" }, { label: "KYC Status", value: "kyc_status" },
+      { label: "Status", value: "status" },
       { label: "Accompanying", value: "accompanying_count" }, { label: "Notes", value: "notes" },
     ]);
     sendCsv(ctx.res, "guests.csv", csv);
@@ -199,12 +192,10 @@ Rohan Sharma,9876543210,rohan@example.com,Sharma Family,Cousin,2026-12-10,2026-1
           `SELECT DISTINCT r.room_number FROM room_allocations ra JOIN rooms r ON r.id=ra.room_id WHERE ra.guest_id IN (${members.map(() => "?").join(",") || "0"}) AND ra.checked_out_at IS NULL`,
           members.map((m) => m.id)
         );
-        const kycDone = members.filter((m) => m.kyc_status === "Verified").length;
         return `<tr>
           <td><a href="/guests?group_id=${gr.id}"><strong>${escapeHtml(gr.name)}</strong></a></td>
           <td>${members.length}</td>
           <td>${rooms.map((r) => escapeHtml(r.room_number)).join(", ") || "—"}</td>
-          <td>${kycDone}/${members.length} verified</td>
         </tr>`;
       })
       .join("");
@@ -215,8 +206,8 @@ Rohan Sharma,9876543210,rohan@example.com,Sharma Family,Cousin,2026-12-10,2026-1
         <div class="field"><label>Notes</label><input type="text" name="notes" /></div>
         <div class="field"><button class="btn">${icon("plus")}Add</button></div>
       </form></div>` : ""}
-      <div class="card"><h2>All families</h2><div class="table-wrap"><table><thead><tr><th>Family</th><th>Members</th><th>Rooms</th><th>KYC</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4">${emptyState("No families yet.")}</td></tr>`}</tbody></table></div></div>
+      <div class="card"><h2>All families</h2><div class="table-wrap"><table><thead><tr><th>Family</th><th>Members</th><th>Rooms</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="3">${emptyState("No families yet.")}</td></tr>`}</tbody></table></div></div>
     `;
     sendHtml(ctx.res, page({ user, active: "guests", title: "Families", content }));
   });
@@ -300,6 +291,17 @@ Rohan Sharma,9876543210,rohan@example.com,Sharma Family,Cousin,2026-12-10,2026-1
     redirect(ctx.res, "/guests");
   });
 
+  router.post("/guests/:id/allocate", (ctx) => {
+    const user = requireUser(ctx);
+    if (!user) return;
+    if (!requireWrite(ctx, user, "rooms", `/guests/${ctx.params.id}`)) return;
+    if (!ctx.body.room_id) return redirect(ctx.res, `/guests/${ctx.params.id}`);
+    const result = allocateGuestToRoom(Number(ctx.body.room_id), Number(ctx.params.id));
+    if (!result.ok) return redirect(ctx.res, `/guests/${ctx.params.id}?alloc_error=` + encodeURIComponent(result.error));
+    logAudit(user, "ALLOCATE", "room", Number(ctx.body.room_id), `guest ${ctx.params.id}`);
+    redirect(ctx.res, `/guests/${ctx.params.id}`);
+  });
+
   router.post("/guests/:id/resend-link", (ctx) => {
     const user = requireUser(ctx);
     if (!user) return;
@@ -320,6 +322,15 @@ Rohan Sharma,9876543210,rohan@example.com,Sharma Family,Cousin,2026-12-10,2026-1
       `SELECT r.*, h.name as hotel_name FROM room_allocations ra JOIN rooms r ON r.id=ra.room_id JOIN hotels h ON h.id=r.hotel_id WHERE ra.guest_id = ? AND ra.checked_out_at IS NULL`,
       [g.id]
     );
+    const availableRooms = !room
+      ? all(
+          `SELECT r.*, h.name as hotel_name,
+             (SELECT COUNT(*) FROM room_allocations ra WHERE ra.room_id = r.id AND ra.checked_out_at IS NULL) as occupied
+           FROM rooms r JOIN hotels h ON h.id = r.hotel_id
+           ORDER BY h.name, r.room_number`
+        ).filter((r) => r.occupied < Math.min(r.max_occupancy, MAX_ROOM_OCCUPANCY))
+      : [];
+    const allocError = ctx.query.alloc_error;
     const portalUrl = `/guest/secure/${g.portal_token}`;
 
     const content = `
@@ -345,15 +356,24 @@ Rohan Sharma,9876543210,rohan@example.com,Sharma Family,Cousin,2026-12-10,2026-1
           </div>
         </div>
         <div class="card">
-          <h2>Stay &amp; KYC</h2>
+          <h2>Stay</h2>
           <div class="kv-list" style="margin-bottom:16px;">
             <div class="kv-row"><span class="kv-label">Room required</span><span class="kv-value">${g.room_required ? "Yes" : "No"}</span></div>
             <div class="kv-row"><span class="kv-label">Bed requirement</span><span class="kv-value">${escapeHtml(g.bed_requirement || "—")}</span></div>
-            <div class="kv-row"><span class="kv-label">Current room</span><span class="kv-value">${room ? `${escapeHtml(room.room_number)} (${escapeHtml(room.hotel_name)})` : "Unallocated"}</span></div>
-            <div class="kv-row"><span class="kv-label">Aadhaar</span><span class="kv-value">${maskAadhaar(g.aadhaar_number)}</span></div>
-            <div class="kv-row"><span class="kv-label">KYC status</span><span class="kv-value">${badge(g.kyc_status, kycVariant(g.kyc_status))}</span></div>
+            <div class="kv-row"><span class="kv-label">Current room</span><span class="kv-value">${room ? `<a href="/rooms?hotel_id=${room.hotel_id}">${escapeHtml(room.room_number)} (${escapeHtml(room.hotel_name)})</a>` : "Unallocated"}</span></div>
           </div>
-          ${!room && g.room_required ? `<a href="/rooms?guest_id=${g.id}" class="btn btn-secondary btn-sm">Allocate a room</a>` : ""}
+          ${allocError ? `<div class="flash error" style="margin-bottom:12px;">${escapeHtml(allocError)}</div>` : ""}
+          ${!room && g.room_required && canEdit ? `
+            <div class="section-title" style="margin-top:0;">Allocate a room</div>
+            ${availableRooms.length ? `<form method="POST" action="/guests/${g.id}/allocate" class="field-row" style="align-items:end;">
+              <div class="field" style="flex:1;">
+                <select name="room_id" required>
+                  ${availableRooms.map((r) => `<option value="${r.id}">${escapeHtml(r.room_number)} — ${escapeHtml(r.hotel_name)} (${escapeHtml(r.room_type)}, ${r.occupied}/${Math.min(r.max_occupancy, MAX_ROOM_OCCUPANCY)})</option>`).join("")}
+                </select>
+              </div>
+              <div class="field"><button class="btn btn-sm">Allocate</button></div>
+            </form>` : `<p class="small muted">No rooms with free capacity — <a href="/rooms/new">add a room</a> first.</p>`}
+          ` : ""}
           <div class="section-title">Guest self-service link</div>
           <div class="field-row" style="align-items:end;">
             <div class="field" style="flex:1;"><input type="text" readonly value="${escapeHtml(portalUrl)}" id="portal-link" /></div>
@@ -377,16 +397,15 @@ Rohan Sharma,9876543210,rohan@example.com,Sharma Family,Cousin,2026-12-10,2026-1
         (g) => `<tr>
         <td><a href="/guests/${g.id}">${escapeHtml(g.full_name)}</a></td>
         <td>${escapeHtml(g.mobile || "—")}</td>
-        <td>${badge(g.kyc_status, kycVariant(g.kyc_status))}</td>
         <td><input type="text" readonly value="/guest/secure/${g.portal_token}" style="font-size:12px;" /></td>
         <td><button class="btn btn-secondary btn-sm" data-copy="/guest/secure/${g.portal_token}">Copy</button></td>
       </tr>`
       )
       .join("");
     const content = `
-      <div class="page-head"><div><h1>Guest Portal Links</h1><p class="lede">Share each guest's private link so they can confirm details and upload KYC.</p></div></div>
-      <div class="card"><div class="table-wrap"><table><thead><tr><th>Guest</th><th>Mobile</th><th>KYC</th><th>Link</th><th></th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5">${emptyState("No guests yet.")}</td></tr>`}</tbody></table></div></div>
+      <div class="page-head"><div><h1>Guest Portal Links</h1><p class="lede">Share each guest's private link so they can confirm their own details.</p></div></div>
+      <div class="card"><div class="table-wrap"><table><thead><tr><th>Guest</th><th>Mobile</th><th>Link</th><th></th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4">${emptyState("No guests yet.")}</td></tr>`}</tbody></table></div></div>
     `;
     sendHtml(ctx.res, page({ user, active: "guests", title: "Guest Portal Links", content }));
   });

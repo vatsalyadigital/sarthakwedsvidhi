@@ -1,11 +1,9 @@
 import { all, get } from "../lib/db.js";
 import { requireUser } from "../lib/guard.js";
-import { sendHtml, sendCsv, toCsv, redirect } from "../lib/router.js";
+import { sendHtml, sendCsv, toCsv } from "../lib/router.js";
 import { page, icon, emptyState } from "../lib/render.js";
-import { escapeHtml, formatINR, formatDate, maskAadhaar } from "../lib/format.js";
+import { escapeHtml, formatINR, formatDate } from "../lib/format.js";
 import { dashboardTotals, vendorSummary } from "../lib/calc.js";
-
-const KYC_VIEW_ROLES = ["SUPER_ADMIN", "GUEST_MANAGER"];
 
 export function registerReportRoutes(router) {
   router.get("/reports", (ctx) => {
@@ -18,7 +16,6 @@ export function registerReportRoutes(router) {
       { title: "Vendor Report", href: "/reports/vendors", desc: "Contract, paid and outstanding per vendor." },
       { title: "Guest Report", href: "/reports/guests", desc: "Name, family, mobile, arrival, departure, room." },
       { title: "Room Report", href: "/reports/rooms", desc: "Room, hotel, occupants, check-in, check-out, status." },
-      { title: "KYC Report", href: "/reports/kyc", desc: "Guest, KYC status, submission date. Restricted access." },
     ];
 
     const content = `
@@ -157,36 +154,5 @@ export function registerReportRoutes(router) {
       { label: "Checked In", value: "checked_in" }, { label: "Status", value: "status" },
     ]);
     sendCsv(ctx.res, "room-report.csv", csv);
-  });
-
-  // ---------------------------------------------------------------- KYC (restricted)
-  function kycReportRows() {
-    return all("SELECT * FROM guests ORDER BY full_name").map((g) => ({
-      name: g.full_name, kyc_status: g.kyc_status, submitted: g.kyc_submitted_at || "", aadhaar: maskAadhaar(g.aadhaar_number),
-    }));
-  }
-
-  router.get("/reports/kyc", (ctx) => {
-    const user = requireUser(ctx);
-    if (!user) return;
-    if (!KYC_VIEW_ROLES.includes(user.role)) return redirect(ctx.res, "/reports");
-    const rows = kycReportRows();
-    const content = `
-      <div class="page-head"><h1>KYC Report</h1><a href="/reports/kyc.csv" class="btn btn-secondary btn-sm">Export CSV</a></div>
-      <div class="card"><div class="table-wrap"><table><thead><tr><th>Guest</th><th>KYC Status</th><th>Submitted</th><th>Aadhaar</th></tr></thead>
-      <tbody>${rows.map((r) => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.kyc_status)}</td><td>${r.submitted ? formatDate(r.submitted) : "—"}</td><td>${r.aadhaar}</td></tr>`).join("") || `<tr><td colspan="4">${emptyState("No guests.")}</td></tr>`}</tbody></table></div></div>
-    `;
-    sendHtml(ctx.res, page({ user, active: "reports", title: "KYC Report", content }));
-  });
-
-  router.get("/reports/kyc.csv", (ctx) => {
-    const user = requireUser(ctx);
-    if (!user) return;
-    if (!KYC_VIEW_ROLES.includes(user.role)) return redirect(ctx.res, "/reports");
-    const csv = toCsv(kycReportRows(), [
-      { label: "Guest", value: "name" }, { label: "KYC Status", value: "kyc_status" },
-      { label: "Submitted", value: "submitted" }, { label: "Aadhaar (masked)", value: "aadhaar" },
-    ]);
-    sendCsv(ctx.res, "kyc-report.csv", csv);
   });
 }

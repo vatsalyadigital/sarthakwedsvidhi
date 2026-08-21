@@ -2,9 +2,10 @@ import { all, get, run } from "../lib/db.js";
 import { requireUser, requireWrite } from "../lib/guard.js";
 import { sendHtml, redirect } from "../lib/router.js";
 import { page, badge, icon, emptyState } from "../lib/render.js";
-import { escapeHtml, formatINR, formatDateTime } from "../lib/format.js";
+import { escapeHtml, formatDateTime } from "../lib/format.js";
 import { logAudit } from "../lib/audit.js";
-import { canWrite, ROOM_TYPES, ROOM_STATUSES, ROOM_TYPE_DEFAULTS } from "../lib/constants.js";
+import { canWrite, ROOM_TYPES, ROOM_STATUSES, ROOM_TYPE_DEFAULTS, MAX_ROOM_OCCUPANCY } from "../lib/constants.js";
+import { allocateGuestToRoom } from "../lib/calc.js";
 
 function hotelPrefix(name) {
   const words = String(name || "H").trim().split(/\s+/).filter((w) => /[a-zA-Z]/.test(w));
@@ -23,14 +24,13 @@ function bulkCreateRooms(hotel, quantities) {
   for (const type of ROOM_TYPES) {
     const qty = Number(quantities[type]?.qty) || 0;
     if (qty <= 0) continue;
-    const rate = Number(quantities[type]?.rate) || ROOM_TYPE_DEFAULTS[type].rate;
     for (let i = 0; i < qty; i++) {
       cursor++;
       const roomNumber = `${prefix}${100 + cursor}`;
       const floor = String(Math.ceil(cursor / 5));
       run(
-        `INSERT INTO rooms (hotel_id, room_number, room_type, floor, max_occupancy, bed_configuration, rate, status) VALUES (?,?,?,?,?,?,?, 'Available')`,
-        [hotel.id, roomNumber, type, floor, ROOM_TYPE_DEFAULTS[type].max_occupancy, "", rate]
+        `INSERT INTO rooms (hotel_id, room_number, room_type, floor, max_occupancy, bed_configuration, status) VALUES (?,?,?,?,?,?, 'Available')`,
+        [hotel.id, roomNumber, type, floor, ROOM_TYPE_DEFAULTS[type].max_occupancy, ""]
       );
       created++;
     }
@@ -41,7 +41,7 @@ function bulkCreateRooms(hotel, quantities) {
 function quantitiesFromBody(b) {
   const out = {};
   for (const type of ROOM_TYPES) {
-    out[type] = { qty: b[`qty_${type}`], rate: b[`rate_${type}`] };
+    out[type] = { qty: b[`qty_${type}`] };
   }
   return out;
 }
@@ -49,15 +49,12 @@ function quantitiesFromBody(b) {
 function bulkRoomFields(defaultsOnly = true) {
   return `
     <div class="section-title" style="margin-top:18px;">${defaultsOnly ? "Generate rooms automatically (optional)" : "Add more rooms in bulk"}</div>
-    <p class="small muted">Tell us how many of each room type this hotel has — we'll create and number them for you. Leave a quantity at 0 to skip that type.</p>
+    <p class="small muted">Tell us how many of each room type this hotel has — we'll create and number them for you (max ${MAX_ROOM_OCCUPANCY} guests per room). Leave a quantity at 0 to skip that type.</p>
     <div class="field-row">
       ${ROOM_TYPES.map(
         (t) => `<div class="field">
-        <label>${t} — qty &amp; rate (₹/night)</label>
-        <div style="display:flex;gap:6px;">
-          <input type="number" name="qty_${t}" value="0" min="0" style="width:70px;" />
-          <input type="number" name="rate_${t}" value="${ROOM_TYPE_DEFAULTS[t].rate}" min="0" />
-        </div>
+        <label>${t} — qty</label>
+        <input type="number" name="qty_${t}" value="0" min="0" style="width:90px;" />
       </div>`
       ).join("")}
     </div>
@@ -114,11 +111,11 @@ export function registerRoomRoutes(router) {
             <div><strong>${escapeHtml(r.room_number)}</strong><div class="small muted">${escapeHtml(hotel?.name || "")} · ${escapeHtml(r.room_type)} · Floor ${escapeHtml(r.floor || "—")}</div></div>
             ${badge(r.status, roomStatusVariant(r.status))}
           </div>
-          <div class="small muted" style="margin-bottom:8px;">${occ.length}/${r.max_occupancy} occupied ${r.rate ? "· " + formatINR(r.rate) + "/night" : ""} ${over ? badge("Over capacity", "critical") : ""}</div>
+          <div class="small muted" style="margin-bottom:8px;">${occ.length}/${r.max_occupancy} occupied ${over ? badge("Over capacity", "critical") : ""}</div>
           ${occ.length ? `<ul style="margin:0 0 10px;padding-left:18px;font-size:13px;">${occ.map((o) => `<li>${escapeHtml(o.full_name)} ${o.checked_in_at ? badge("Checked in", "good") : `<form method="POST" action="/rooms/allocations/${o.id}/checkin" style="display:inline;"><button class="btn-sm btn-secondary btn">Check in</button></form>`}
             ${canEdit ? `<form method="POST" action="/rooms/allocations/${o.id}/checkout" style="display:inline;margin-left:4px;"><button class="btn-sm btn-secondary btn">Check out</button></form>
             <form method="POST" action="/rooms/allocations/${o.id}/remove" style="display:inline;margin-left:4px;" data-confirm="Remove this allocation?"><button class="btn-sm btn-danger btn">✕</button></form>` : ""}</li>`).join("")}</ul>` : `<div class="small muted" style="margin-bottom:10px;">No occupants.</div>`}
-          ${canEdit ? `<details><summary class="small" style="cursor:pointer;color:var(--gold-dark);font-weight:700;">Allocate guest</summary>
+          ${canEdit && occ.length < Math.min(r.max_occupancy, MAX_ROOM_OCCUPANCY) ? `<details><summary class="small" style="cursor:pointer;color:var(--gold-dark);font-weight:700;">Allocate guest</summary>
             <form method="POST" action="/rooms/${r.id}/allocate" style="margin-top:8px;display:flex;gap:8px;">
               <select name="guest_id" required style="flex:1;">
                 <option value="">Select guest</option>
@@ -126,8 +123,8 @@ export function registerRoomRoutes(router) {
               </select>
               <button class="btn btn-sm">Assign</button>
             </form>
-          </details>
-          <div style="margin-top:8px;display:flex;gap:6px;">
+          </details>` : ""}
+          ${canEdit ? `<div style="margin-top:8px;display:flex;gap:6px;">
             <a href="/rooms/${r.id}/edit" class="btn btn-secondary btn-sm">Edit</a>
             <form method="POST" action="/rooms/${r.id}/delete" data-confirm="Delete this room?"><button class="btn btn-danger btn-sm">Delete</button></form>
           </div>` : ""}
@@ -156,6 +153,7 @@ export function registerRoomRoutes(router) {
         ${canEdit ? `<div style="display:flex;gap:8px;"><a href="/rooms/hotels/new" class="btn btn-secondary">${icon("plus")}Add Hotel</a><a href="/rooms/new" class="btn">${icon("plus")}Add Room</a></div>` : ""}
       </div>
       ${ctx.query.created_rooms ? `<div class="flash success">${ctx.query.created_rooms} room${ctx.query.created_rooms === "1" ? "" : "s"} generated automatically.</div>` : ""}
+      ${ctx.query.alloc_error ? `<div class="flash error">${escapeHtml(ctx.query.alloc_error)}</div>` : ""}
 
       <div class="stat-grid">${hotelCards || `<div class="empty-state">No hotels added yet.</div>`}</div>
 
@@ -308,8 +306,7 @@ export function registerRoomRoutes(router) {
         </div>
         <div class="field-row">
           <div class="field"><label>Floor</label><input type="text" name="floor" /></div>
-          <div class="field"><label>Max occupancy</label><input type="number" name="max_occupancy" value="2" /></div>
-          <div class="field"><label>Rate (₹/night)</label><input type="number" name="rate" value="0" /></div>
+          <div class="field"><label>Max occupancy (up to ${MAX_ROOM_OCCUPANCY})</label><input type="number" name="max_occupancy" value="${MAX_ROOM_OCCUPANCY}" min="1" max="${MAX_ROOM_OCCUPANCY}" /></div>
         </div>
         <div class="field"><label>Bed configuration</label><input type="text" name="bed_configuration" placeholder="e.g. 1 king bed" /></div>
         <button class="btn btn-lg">Save room</button>
@@ -322,9 +319,10 @@ export function registerRoomRoutes(router) {
     if (!user) return;
     if (!requireWrite(ctx, user, "rooms", "/rooms")) return;
     const b = ctx.body;
+    const maxOccupancy = Math.min(Number(b.max_occupancy) || MAX_ROOM_OCCUPANCY, MAX_ROOM_OCCUPANCY);
     const result = run(
-      `INSERT INTO rooms (hotel_id, room_number, room_type, floor, max_occupancy, bed_configuration, rate, status) VALUES (?,?,?,?,?,?,?, 'Available')`,
-      [b.hotel_id, b.room_number, b.room_type, b.floor, Number(b.max_occupancy) || 2, b.bed_configuration, Number(b.rate) || 0]
+      `INSERT INTO rooms (hotel_id, room_number, room_type, floor, max_occupancy, bed_configuration, status) VALUES (?,?,?,?,?,?, 'Available')`,
+      [b.hotel_id, b.room_number, b.room_type, b.floor, maxOccupancy, b.bed_configuration]
     );
     logAudit(user, "CREATE", "room", Number(result.lastInsertRowid), b.room_number);
     redirect(ctx.res, "/rooms");
@@ -346,8 +344,7 @@ export function registerRoomRoutes(router) {
         </div>
         <div class="field-row">
           <div class="field"><label>Floor</label><input type="text" name="floor" value="${escapeHtml(r.floor || "")}" /></div>
-          <div class="field"><label>Max occupancy</label><input type="number" name="max_occupancy" value="${r.max_occupancy}" /></div>
-          <div class="field"><label>Rate (₹/night)</label><input type="number" name="rate" value="${r.rate}" /></div>
+          <div class="field"><label>Max occupancy (up to ${MAX_ROOM_OCCUPANCY})</label><input type="number" name="max_occupancy" value="${r.max_occupancy}" min="1" max="${MAX_ROOM_OCCUPANCY}" /></div>
         </div>
         <div class="field-row">
           <div class="field"><label>Bed configuration</label><input type="text" name="bed_configuration" value="${escapeHtml(r.bed_configuration || "")}" /></div>
@@ -363,9 +360,10 @@ export function registerRoomRoutes(router) {
     if (!user) return;
     if (!requireWrite(ctx, user, "rooms", "/rooms")) return;
     const b = ctx.body;
+    const maxOccupancy = Math.min(Number(b.max_occupancy) || MAX_ROOM_OCCUPANCY, MAX_ROOM_OCCUPANCY);
     run(
-      `UPDATE rooms SET hotel_id=?, room_number=?, room_type=?, floor=?, max_occupancy=?, bed_configuration=?, rate=?, status=? WHERE id=?`,
-      [b.hotel_id, b.room_number, b.room_type, b.floor, Number(b.max_occupancy) || 2, b.bed_configuration, Number(b.rate) || 0, b.status, ctx.params.id]
+      `UPDATE rooms SET hotel_id=?, room_number=?, room_type=?, floor=?, max_occupancy=?, bed_configuration=?, status=? WHERE id=?`,
+      [b.hotel_id, b.room_number, b.room_type, b.floor, maxOccupancy, b.bed_configuration, b.status, ctx.params.id]
     );
     redirect(ctx.res, "/rooms");
   });
@@ -384,11 +382,10 @@ export function registerRoomRoutes(router) {
     const user = requireUser(ctx);
     if (!user) return;
     if (!requireWrite(ctx, user, "rooms", "/rooms")) return;
-    const room = get("SELECT * FROM rooms WHERE id = ?", [ctx.params.id]);
-    if (!room || !ctx.body.guest_id) return redirect(ctx.res, "/rooms");
-    run("INSERT INTO room_allocations (room_id, guest_id) VALUES (?, ?)", [room.id, ctx.body.guest_id]);
-    if (room.status === "Available") run("UPDATE rooms SET status='Occupied' WHERE id=?", [room.id]);
-    logAudit(user, "ALLOCATE", "room", room.id, `guest ${ctx.body.guest_id}`);
+    if (!ctx.body.guest_id) return redirect(ctx.res, "/rooms");
+    const result = allocateGuestToRoom(Number(ctx.params.id), ctx.body.guest_id);
+    if (!result.ok) return redirect(ctx.res, "/rooms?alloc_error=" + encodeURIComponent(result.error));
+    logAudit(user, "ALLOCATE", "room", Number(ctx.params.id), `guest ${ctx.body.guest_id}`);
     redirect(ctx.res, "/rooms");
   });
 

@@ -40,7 +40,6 @@ export const NAV_ITEMS = [
   { key: "vendors", label: "Vendors", href: "/vendors", icon: "briefcase" },
   { key: "payments", label: "Payments", href: "/payments", icon: "wallet" },
   { key: "guests", label: "Guests", href: "/guests", icon: "users" },
-  { key: "kyc", label: "Aadhaar / KYC", href: "/kyc", icon: "shield" },
   { key: "rooms", label: "Rooms", href: "/rooms", icon: "bed" },
   { key: "functions", label: "Functions / Events", href: "/functions", icon: "calendarDays" },
   { key: "budget", label: "Budget", href: "/budget", icon: "pieChart" },
@@ -135,12 +134,13 @@ export function card(innerHtml, cls = "") {
   return `<div class="card ${cls}">${innerHtml}</div>`;
 }
 
-export function statTile({ label, value, sub, accent }) {
-  return `<div class="stat-tile ${accent ? "accent-" + accent : ""}">
+export function statTile({ label, value, sub, accent, href }) {
+  const inner = `
     <div class="stat-label">${escapeHtml(label)}</div>
     <div class="stat-value">${value}</div>
-    ${sub ? `<div class="stat-sub">${sub}</div>` : ""}
-  </div>`;
+    ${sub ? `<div class="stat-sub">${sub}</div>` : ""}`;
+  const cls = `stat-tile ${accent ? "accent-" + accent : ""} ${href ? "stat-tile-link" : ""}`;
+  return href ? `<a href="${href}" class="${cls}">${inner}</a>` : `<div class="${cls}">${inner}</div>`;
 }
 
 export function badge(text, variant = "neutral") {
@@ -184,11 +184,11 @@ export function hbarChart(entries, { color = SEQ_BLUE, formatter = formatINR, em
       .map((e) => {
         const pct = (e.value / max) * 100;
         const c = e.color || color;
-        return `<div class="hbar-row">
+        const row = `
           <div class="hbar-label" title="${escapeHtml(e.label)}">${escapeHtml(e.label)}</div>
           <div class="hbar-track"><div class="hbar-fill" style="width:${pct}%; background:${c}"></div></div>
-          <div class="hbar-value">${formatter(e.value)}</div>
-        </div>`;
+          <div class="hbar-value">${formatter(e.value)}</div>`;
+        return e.href ? `<a href="${e.href}" class="hbar-row hbar-row-link">${row}</a>` : `<div class="hbar-row">${row}</div>`;
       })
       .join("")}
   </div>`;
