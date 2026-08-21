@@ -1,11 +1,12 @@
 import { all, get, run } from "../lib/db.js";
 import { requireUser } from "../lib/guard.js";
-import { sendHtml, redirect } from "../lib/router.js";
+import { sendHtml, sendJsonFile, redirect } from "../lib/router.js";
 import { page, badge, emptyState } from "../lib/render.js";
 import { escapeHtml, formatDateTime } from "../lib/format.js";
 import { hashPassword, verifyPassword } from "../lib/auth.js";
 import { logAudit } from "../lib/audit.js";
 import { ROLES, ROLE_LABELS } from "../lib/constants.js";
+import { exportAllData, importAllData } from "../lib/backup.js";
 
 export function registerSettingsRoutes(router) {
   router.get("/settings", (ctx) => {
@@ -46,6 +47,28 @@ export function registerSettingsRoutes(router) {
             <div class="field"><label>Password</label><input type="password" name="password" required /></div>
             <div class="field"><label>Role</label><select name="role">${ROLES.map((r) => `<option value="${r}">${ROLE_LABELS[r]}</option>`).join("")}</select></div>
             <div class="field"><button class="btn">Add user</button></div>
+          </form>
+        </div>
+      `;
+
+      const importError = ctx.query.importerror;
+      const imported = ctx.query.imported;
+      usersSection += `
+        <div class="card">
+          <h2>Backup &amp; restore</h2>
+          <p class="small secondary-text">This deployment runs without persistent storage, so data can be lost on redeploy or restart. Download a backup before making infrastructure changes, and restore it after.</p>
+          ${importError ? `<div class="flash error" style="margin:0 0 12px;">Restore failed: ${escapeHtml(importError)}</div>` : ""}
+          ${imported ? `<div class="flash" style="margin:0 0 12px;">Backup restored successfully.</div>` : ""}
+          <div class="field-row" style="align-items:end;">
+            <div class="field"><a href="/settings/export" class="btn btn-secondary">Download backup (JSON)</a></div>
+          </div>
+          <form id="import-form" method="POST" action="/settings/import" class="field-row" style="align-items:end;margin-top:12px;" data-confirm="This will replace ALL current data with the uploaded backup. Continue?">
+            <div class="field">
+              <label>Restore from backup file</label>
+              <input type="file" id="import-file" accept="application/json" />
+            </div>
+            <input type="hidden" name="data" id="import-data" />
+            <div class="field"><button type="submit" class="btn btn-danger btn-sm" id="import-submit" disabled>Restore</button></div>
           </form>
         </div>
       `;
@@ -96,6 +119,30 @@ export function registerSettingsRoutes(router) {
       </div>
     `;
     sendHtml(ctx.res, page({ user, active: "settings", title: "Settings", content }));
+  });
+
+  router.get("/settings/export", (ctx) => {
+    const user = requireUser(ctx);
+    if (!user) return;
+    if (user.role !== "SUPER_ADMIN") return redirect(ctx.res, "/settings");
+    const data = exportAllData();
+    const stamp = new Date().toISOString().slice(0, 10);
+    logAudit(user, "EXPORT_BACKUP", "system", null, "");
+    sendJsonFile(ctx.res, `wedding-erp-backup-${stamp}.json`, data);
+  });
+
+  router.post("/settings/import", (ctx) => {
+    const user = requireUser(ctx);
+    if (!user) return;
+    if (user.role !== "SUPER_ADMIN") return redirect(ctx.res, "/settings");
+    try {
+      const payload = JSON.parse(ctx.body.data || "");
+      importAllData(payload);
+      logAudit(user, "IMPORT_BACKUP", "system", null, `Restored ${Object.keys(payload.tables || {}).length} tables`);
+      redirect(ctx.res, "/settings?imported=1");
+    } catch (err) {
+      redirect(ctx.res, "/settings?importerror=" + encodeURIComponent(err.message));
+    }
   });
 
   router.post("/settings/password", (ctx) => {

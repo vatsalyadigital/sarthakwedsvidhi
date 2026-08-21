@@ -111,6 +111,13 @@ export function redirect(res, location) {
   res.end();
 }
 
+export function sendJsonFile(res, filename, obj) {
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.end(JSON.stringify(obj, null, 2));
+}
+
 export function sendCsv(res, filename, csvText) {
   res.statusCode = 200;
   res.setHeader("Content-Type", "text/csv; charset=utf-8");

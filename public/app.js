@@ -66,6 +66,26 @@ if (searchInput) {
   });
 }
 
+// Backup restore: read the chosen file into the hidden field before submit
+const importFile = document.getElementById("import-file");
+if (importFile) {
+  const importData = document.getElementById("import-data");
+  const importSubmit = document.getElementById("import-submit");
+  importFile.addEventListener("change", () => {
+    const file = importFile.files[0];
+    if (!file) {
+      importSubmit.disabled = true;
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      importData.value = reader.result;
+      importSubmit.disabled = false;
+    };
+    reader.readAsText(file);
+  });
+}
+
 // Copy-to-clipboard helper (used on guest portal link list)
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-copy]");
