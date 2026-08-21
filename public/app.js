@@ -66,24 +66,35 @@ if (searchInput) {
   });
 }
 
-// Backup restore: read the chosen file into the hidden field before submit
+// Backup restore: read the chosen file into the hidden field before submit.
+// Requires both a file and the explicit checkbox, since some browsers mute
+// repeated confirm() popups after a few dismissals — a silent form.confirm()
+// block would look exactly like the button doing nothing.
 const importFile = document.getElementById("import-file");
 if (importFile) {
   const importData = document.getElementById("import-data");
+  const importConfirm = document.getElementById("import-confirm");
   const importSubmit = document.getElementById("import-submit");
+  let fileLoaded = false;
+
+  function updateImportSubmit() {
+    importSubmit.disabled = !(fileLoaded && importConfirm.checked);
+  }
+
   importFile.addEventListener("change", () => {
     const file = importFile.files[0];
-    if (!file) {
-      importSubmit.disabled = true;
-      return;
-    }
+    fileLoaded = false;
+    updateImportSubmit();
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       importData.value = reader.result;
-      importSubmit.disabled = false;
+      fileLoaded = true;
+      updateImportSubmit();
     };
     reader.readAsText(file);
   });
+  importConfirm.addEventListener("change", updateImportSubmit);
 }
 
 // Copy-to-clipboard helper (used on guest portal link list)

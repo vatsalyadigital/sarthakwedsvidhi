@@ -62,13 +62,17 @@ export function registerSettingsRoutes(router) {
           <div class="field-row" style="align-items:end;">
             <div class="field"><a href="/settings/export" class="btn btn-secondary">Download backup (JSON)</a></div>
           </div>
-          <form id="import-form" method="POST" action="/settings/import" class="field-row" style="align-items:end;margin-top:12px;" data-confirm="This will replace ALL current data with the uploaded backup. Continue?">
+          <form id="import-form" method="POST" action="/settings/import" style="margin-top:12px;">
             <div class="field">
               <label>Restore from backup file</label>
               <input type="file" id="import-file" accept="application/json" />
             </div>
             <input type="hidden" name="data" id="import-data" />
-            <div class="field"><button type="submit" class="btn btn-danger btn-sm" id="import-submit" disabled>Restore</button></div>
+            <label class="small" style="display:flex;gap:6px;align-items:center;margin:10px 0;">
+              <input type="checkbox" id="import-confirm" />
+              I understand this replaces ALL current data with the uploaded backup.
+            </label>
+            <button type="submit" class="btn btn-danger btn-sm" id="import-submit" disabled>Restore</button>
           </form>
         </div>
       `;
