@@ -12,9 +12,9 @@ mkdir -p "$DATA_DIR"
 
 if [ ! -f "$DB_PATH" ]; then
   echo "No existing database found at $DB_PATH — seeding demo data..."
-  node src/seed.js
+  node --experimental-sqlite src/seed.js
 else
   echo "Existing database found at $DB_PATH — skipping seed."
 fi
 
-exec node src/server.js
+exec node --experimental-sqlite src/server.js
