@@ -273,7 +273,6 @@ export function registerVendorRoutes(router) {
       { key: "overview", label: "Overview", href: `/vendors/${v.id}?tab=overview` },
       { key: "quotation", label: "Quotation", href: `/vendors/${v.id}?tab=quotation` },
       { key: "contract", label: "Contract", href: `/vendors/${v.id}?tab=contract` },
-      { key: "expenses", label: "Expenses", href: `/vendors/${v.id}?tab=expenses` },
       { key: "payments", label: "Payments", href: `/vendors/${v.id}?tab=payments` },
       { key: "documents", label: "Documents", href: `/vendors/${v.id}?tab=documents` },
       { key: "notes", label: "Notes", href: `/vendors/${v.id}?tab=notes` },
@@ -399,16 +398,6 @@ export function registerVendorRoutes(router) {
           </form>
         </div>
       `;
-    }
-
-    if (activeTab === "expenses") {
-      const expenses = all(`SELECT * FROM expenses WHERE vendor_id = ? ORDER BY date DESC`, [v.id]);
-      tabContent = `<div class="card">
-        <div class="card-row"><h2 style="margin:0;">Expenses linked to this vendor</h2><a href="/expenses/new?vendor_id=${v.id}" class="btn btn-secondary btn-sm">+ Add expense</a></div>
-        ${expenses.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody>
-          ${expenses.map((e) => `<tr><td>${formatDate(e.date)}</td><td>${escapeHtml(e.category)}</td><td>${escapeHtml(e.description)}</td><td class="num">${formatINR(e.amount + e.tax)}</td><td>${badge(e.payment_status, e.payment_status === "Paid" ? "good" : e.payment_status === "Partially Paid" ? "warning" : "critical")}</td></tr>`).join("")}
-        </tbody></table></div>` : emptyState("No expenses linked to this vendor yet.")}
-      </div>`;
     }
 
     if (activeTab === "payments") {

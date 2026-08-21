@@ -114,8 +114,6 @@ export function registerFunctionRoutes(router) {
       `SELECT * FROM vendors WHERE id NOT IN (SELECT vendor_id FROM vendor_functions WHERE function_id = ?) ORDER BY name`,
       [f.id]
     );
-    const expenses = all(`SELECT * FROM expenses WHERE function_id = ? ORDER BY date DESC`, [f.id]);
-
     const content = `
       <div class="page-head">
         <div><h1>${escapeHtml(f.name)}</h1><p class="lede">${f.date ? formatDate(f.date) : "No date"}${f.venue ? " · " + escapeHtml(f.venue) : ""}</p></div>
@@ -131,29 +129,20 @@ export function registerFunctionRoutes(router) {
       </div>
       ${progressBar(pct, pct > 100 ? "critical" : "gold")}
 
-      <div class="grid grid-2" style="margin-top:20px;">
-        <div class="card">
-          <h2>Linked vendors</h2>
-          ${linkedVendors.length ? `<div class="pill-row" style="margin-bottom:14px;">${linkedVendors
-            .map(
-              (v) => `<span class="badge badge-gold">${escapeHtml(v.name)} ${canEdit ? `<form method="POST" action="/functions/${f.id}/vendors/${v.id}/remove" style="display:inline;"><button class="btn-sm" style="background:none;border:none;color:inherit;cursor:pointer;padding:0 0 0 4px;">✕</button></form>` : ""}</span>`
-            )
-            .join("")}</div>` : `<div class="empty-state">No vendors linked yet.</div>`}
-          ${canEdit && otherVendors.length ? `
-          <form method="POST" action="/functions/${f.id}/vendors" class="field-row" style="align-items:end;">
-            <div class="field"><label>Add a vendor to this function</label>
-              <select name="vendor_id">${otherVendors.map((v) => `<option value="${v.id}">${escapeHtml(v.name)} (${escapeHtml(v.category)})</option>`).join("")}</select>
-            </div>
-            <div class="field"><button class="btn btn-secondary">Link vendor</button></div>
-          </form>` : ""}
-        </div>
-        <div class="card">
-          <h2>Expenses for this function</h2>
-          ${expenses.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="num">Amount</th></tr></thead><tbody>
-            ${expenses.map((e) => `<tr><td>${formatDate(e.date)}</td><td>${escapeHtml(e.category)}</td><td>${escapeHtml(e.description)}</td><td class="num">${formatINR(e.amount + e.tax)}</td></tr>`).join("")}
-          </tbody></table></div>` : `<div class="empty-state">No expenses logged for this function yet.</div>`}
-          <a href="/expenses/new?function_id=${f.id}" class="btn btn-secondary btn-sm" style="margin-top:12px;">+ Add expense</a>
-        </div>
+      <div class="card" style="margin-top:20px;">
+        <h2>Linked vendors</h2>
+        ${linkedVendors.length ? `<div class="pill-row" style="margin-bottom:14px;">${linkedVendors
+          .map(
+            (v) => `<span class="badge badge-gold">${escapeHtml(v.name)} ${canEdit ? `<form method="POST" action="/functions/${f.id}/vendors/${v.id}/remove" style="display:inline;"><button class="btn-sm" style="background:none;border:none;color:inherit;cursor:pointer;padding:0 0 0 4px;">✕</button></form>` : ""}</span>`
+          )
+          .join("")}</div>` : `<div class="empty-state">No vendors linked yet.</div>`}
+        ${canEdit && otherVendors.length ? `
+        <form method="POST" action="/functions/${f.id}/vendors" class="field-row" style="align-items:end;">
+          <div class="field"><label>Add a vendor to this function</label>
+            <select name="vendor_id">${otherVendors.map((v) => `<option value="${v.id}">${escapeHtml(v.name)} (${escapeHtml(v.category)})</option>`).join("")}</select>
+          </div>
+          <div class="field"><button class="btn btn-secondary">Link vendor</button></div>
+        </form>` : ""}
       </div>
       ${f.notes ? `<div class="card" style="margin-top:18px;"><h2>Notes</h2><p>${escapeHtml(f.notes)}</p></div>` : ""}
     `;

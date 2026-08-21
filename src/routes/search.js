@@ -17,9 +17,6 @@ function runSearch(q) {
   all("SELECT r.*, h.name as hotel_name FROM rooms r JOIN hotels h ON h.id=r.hotel_id WHERE r.room_number LIKE ? LIMIT 8", [like]).forEach((r) =>
     results.push({ type: "Room", title: r.room_number, subtitle: r.hotel_name, href: `/rooms?hotel_id=${r.hotel_id}` })
   );
-  all("SELECT * FROM expenses WHERE description LIKE ? OR CAST(id as TEXT) = ? LIMIT 8", [like, q]).forEach((e) =>
-    results.push({ type: "Expense", title: e.description || `Expense #${e.id}`, subtitle: formatINR(e.amount + e.tax), href: `/expenses` })
-  );
   all("SELECT p.*, v.name as vendor_name FROM vendor_payments p JOIN vendors v ON v.id=p.vendor_id WHERE CAST(p.id as TEXT) = ? OR p.transaction_ref LIKE ? LIMIT 8", [q, like]).forEach((p) =>
     results.push({ type: "Payment", title: `${p.vendor_name} — ${formatINR(p.amount)}`, subtitle: p.payment_date, href: `/vendors/${p.vendor_id}?tab=payments` })
   );

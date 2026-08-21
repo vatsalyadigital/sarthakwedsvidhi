@@ -38,7 +38,6 @@ export const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", href: "/", icon: "dashboard" },
   { key: "wedding", label: "Wedding Details", href: "/wedding", icon: "heart" },
   { key: "vendors", label: "Vendors", href: "/vendors", icon: "briefcase" },
-  { key: "expenses", label: "Expenses", href: "/expenses", icon: "receipt" },
   { key: "payments", label: "Payments", href: "/payments", icon: "wallet" },
   { key: "guests", label: "Guests", href: "/guests", icon: "users" },
   { key: "kyc", label: "Aadhaar / KYC", href: "/kyc", icon: "shield" },

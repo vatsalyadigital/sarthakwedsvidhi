@@ -2,3 +2,4 @@ node_modules/
 data/
 .env
 .claude/launch.json
+wedding-erp-backup*.json
