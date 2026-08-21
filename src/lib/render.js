@@ -91,7 +91,7 @@ export function page({ user, active, title, content, flash }) {
     <header class="topbar">
       <form class="global-search" action="/search" method="GET">
         ${icon("search", "search-icon")}
-        <input type="text" name="q" placeholder="Search vendors, guests, phone, room, expense..." autocomplete="off" />
+        <input type="text" name="q" placeholder="Search vendors, guests, phone, room, payment..." autocomplete="off" />
       </form>
       <div class="topbar-right">
         ${user ? `<span class="role-pill">${escapeHtml(ROLE_LABELS[user.role] || user.role)}</span>

@@ -6,12 +6,6 @@ export const VENDOR_CATEGORIES = [
   "Pandit", "Clothing", "Jewellery", "Accommodation", "Other",
 ];
 
-export const DEFAULT_EXPENSE_CATEGORIES = [
-  "Food", "Decoration", "Venue", "Accommodation", "Transport",
-  "Photography", "Makeup", "Clothing", "Gifts", "Jewellery",
-  "Entertainment", "Invitations", "Miscellaneous",
-];
-
 export const PAYMENT_MODES = ["Cash", "UPI", "Bank Transfer", "Cheque", "Card", "Other"];
 
 export const PAYMENT_STATUSES = ["Unpaid", "Partially Paid", "Paid"];
@@ -53,7 +47,6 @@ export const ROLE_LABELS = {
 // SUPER_ADMIN can always do everything.
 export const ROLE_PERMISSIONS = {
   vendors: ["SUPER_ADMIN", "VENDOR_MANAGER"],
-  expenses: ["SUPER_ADMIN", "FINANCE"],
   payments: ["SUPER_ADMIN", "FINANCE", "VENDOR_MANAGER"],
   budget: ["SUPER_ADMIN", "FINANCE"],
   guests: ["SUPER_ADMIN", "GUEST_MANAGER"],

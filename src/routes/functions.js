@@ -5,10 +5,7 @@ import { page, card, badge, progressBar, icon } from "../lib/render.js";
 import { escapeHtml, formatINR, formatDate } from "../lib/format.js";
 import { logAudit } from "../lib/audit.js";
 import { canWrite } from "../lib/constants.js";
-
-function functionActual(id) {
-  return get(`SELECT COALESCE(SUM(amount+tax),0) as t FROM expenses WHERE function_id = ?`, [id]).t;
-}
+import { functionEstimated } from "../lib/calc.js";
 
 function functionForm(f = {}) {
   return `
@@ -38,8 +35,8 @@ export function registerFunctionRoutes(router) {
 
     const cards = functions
       .map((f) => {
-        const actual = functionActual(f.id);
-        const pct = f.budget ? Math.round((actual / f.budget) * 100) : 0;
+        const estimated = functionEstimated(f.id);
+        const pct = f.budget ? Math.round((estimated / f.budget) * 100) : 0;
         const vendors = all(
           `SELECT v.* FROM vendors v JOIN vendor_functions vf ON vf.vendor_id = v.id WHERE vf.function_id = ?`,
           [f.id]
@@ -55,7 +52,7 @@ export function registerFunctionRoutes(router) {
           <div class="kv-list" style="margin-bottom:10px;">
             <div class="kv-row"><span class="kv-label">Expected guests</span><span class="kv-value">${f.expected_guests || 0}</span></div>
             <div class="kv-row"><span class="kv-label">Budget</span><span class="kv-value">${formatINR(f.budget)}</span></div>
-            <div class="kv-row"><span class="kv-label">Actual</span><span class="kv-value">${formatINR(actual)}</span></div>
+            <div class="kv-row"><span class="kv-label">Estimated</span><span class="kv-value">${formatINR(estimated)}</span></div>
           </div>
           ${progressBar(pct, pct > 100 ? "critical" : "gold")}
           <div class="small muted" style="margin:10px 0;">Vendors: ${vendors.length ? vendors.map((v) => escapeHtml(v.name)).join(", ") : "none linked yet"}</div>
@@ -104,8 +101,8 @@ export function registerFunctionRoutes(router) {
     if (!f) return redirect(ctx.res, "/functions");
     const canEdit = canWrite(user.role, "functions");
 
-    const actual = functionActual(f.id);
-    const pct = f.budget ? Math.round((actual / f.budget) * 100) : 0;
+    const estimated = functionEstimated(f.id);
+    const pct = f.budget ? Math.round((estimated / f.budget) * 100) : 0;
     const linkedVendors = all(
       `SELECT v.* FROM vendors v JOIN vendor_functions vf ON vf.vendor_id = v.id WHERE vf.function_id = ? ORDER BY v.name`,
       [f.id]
@@ -124,7 +121,7 @@ export function registerFunctionRoutes(router) {
       <div class="stat-grid">
         <div class="stat-tile"><div class="stat-label">Expected guests</div><div class="stat-value">${f.expected_guests || 0}</div></div>
         <div class="stat-tile"><div class="stat-label">Budget</div><div class="stat-value">${formatINR(f.budget)}</div></div>
-        <div class="stat-tile accent-${pct > 100 ? "critical" : "good"}"><div class="stat-label">Actual</div><div class="stat-value">${formatINR(actual)}</div></div>
+        <div class="stat-tile accent-${pct > 100 ? "critical" : "good"}"><div class="stat-label">Estimated</div><div class="stat-value">${formatINR(estimated)}</div></div>
         <div class="stat-tile"><div class="stat-label">% Used</div><div class="stat-value">${pct}%</div></div>
       </div>
       ${progressBar(pct, pct > 100 ? "critical" : "gold")}

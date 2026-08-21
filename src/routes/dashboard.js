@@ -3,7 +3,7 @@ import { requireUser } from "../lib/guard.js";
 import { sendHtml } from "../lib/router.js";
 import { page, card, statTile, hbarChart, stackedBar, alertItem, CHART_COLORS, icon } from "../lib/render.js";
 import { formatINR, formatDate } from "../lib/format.js";
-import { dashboardTotals, vendorSummary } from "../lib/calc.js";
+import { dashboardTotals, vendorSummary, categoryEstimated } from "../lib/calc.js";
 import { computeAlerts } from "../lib/alerts.js";
 
 export function registerDashboardRoutes(router) {
@@ -30,8 +30,7 @@ export function registerDashboardRoutes(router) {
     const stats = [
       { label: "Total Wedding Budget", value: formatINR(totals.totalBudget), sub: wedding?.wedding_date ? formatDate(wedding.wedding_date) + (daysToGo ? " · " + daysToGo : "") : "" },
       { label: "Total Estimated Cost", value: formatINR(totals.totalEstimated), sub: "Sum of final vendor contracts", accent: "gold" },
-      { label: "Total Actual Expense", value: formatINR(totals.totalActualExpense), sub: "All logged expenses" },
-      { label: "Total Paid", value: formatINR(totals.totalPaid), sub: "Vendor payments + paid expenses", accent: "good" },
+      { label: "Total Paid", value: formatINR(totals.totalPaid), sub: "Vendor payments", accent: "good" },
       { label: "Total Outstanding", value: formatINR(totals.totalOutstanding), sub: "Still owed", accent: totals.totalOutstanding > 0 ? "warning" : "good" },
       { label: "Vendors", value: String(totals.vendorCount), sub: "onboarded" },
       { label: "Guests", value: String(totals.guestCount), sub: "in the guest list" },
@@ -41,26 +40,16 @@ export function registerDashboardRoutes(router) {
       { label: "Upcoming Functions", value: String(upcomingFunctions), sub: "scheduled ahead" },
     ];
 
-    // Expense by category
-    const byCategory = all(
-      `SELECT category, SUM(amount+tax) as total FROM expenses GROUP BY category ORDER BY total DESC`
-    ).map((r) => ({ label: r.category, value: r.total }));
+    // Estimated cost by category (final vendor rates, grouped by vendor category)
+    const byCategory = all(`SELECT DISTINCT category FROM vendors`)
+      .map((r) => ({ label: r.category, value: categoryEstimated(r.category) }))
+      .filter((r) => r.value > 0)
+      .sort((a, b) => b.value - a.value);
 
-    // Expense by function
-    const byFunction = all(
-      `SELECT f.name as label, COALESCE(SUM(e.amount+e.tax),0) as value
-       FROM functions f LEFT JOIN expenses e ON e.function_id = f.id
-       GROUP BY f.id ORDER BY value DESC`
-    ).filter((r) => r.value > 0);
-
-    // Vendor-wise spending (by linked expenses, fallback to contract final amount)
+    // Vendor-wise spending (final contract amount per vendor)
     const vendors = all(`SELECT * FROM vendors`);
     const vendorSpend = vendors
-      .map((v) => {
-        const linked = get(`SELECT COALESCE(SUM(amount+tax),0) as t FROM expenses WHERE vendor_id = ?`, [v.id]).t;
-        const s = vendorSummary(v);
-        return { label: v.name, value: linked > 0 ? linked : s.finalAmount };
-      })
+      .map((v) => ({ label: v.name, value: vendorSummary(v).finalAmount }))
       .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
@@ -82,11 +71,11 @@ export function registerDashboardRoutes(router) {
 
       <div class="grid grid-2">
         <div class="card">
-          <h2>Budget vs Actual</h2>
+          <h2>Budget vs Estimated Cost</h2>
           ${hbarChart(
             [
               { label: "Budget", value: totals.totalBudget, color: "#c9bda0" },
-              { label: "Actual", value: totals.totalActualExpense, color: totals.totalActualExpense > totals.totalBudget ? CHART_COLORS.critical : CHART_COLORS.good },
+              { label: "Estimated", value: totals.totalEstimated, color: totals.totalEstimated > totals.totalBudget ? CHART_COLORS.critical : CHART_COLORS.good },
             ],
             { emptyText: "Set a wedding budget to see this chart." }
           )}
@@ -104,28 +93,22 @@ export function registerDashboardRoutes(router) {
 
       <div class="grid grid-2" style="margin-top:18px;">
         <div class="card">
-          <h2>Expense by Category</h2>
-          ${hbarChart(byCategory, { color: CHART_COLORS.blue, emptyText: "No expenses logged yet." })}
+          <h2>Estimated Cost by Category</h2>
+          ${hbarChart(byCategory, { color: CHART_COLORS.blue, emptyText: "No vendors with a category yet." })}
         </div>
-        <div class="card">
-          <h2>Expense by Function</h2>
-          ${hbarChart(byFunction, { color: CHART_COLORS.orange, emptyText: "No function expenses logged yet." })}
-        </div>
-      </div>
-
-      <div class="grid grid-2" style="margin-top:18px;">
         <div class="card">
           <h2>Vendor-wise Spending</h2>
           ${hbarChart(vendorSpend, { color: CHART_COLORS.aqua, emptyText: "No vendor spending yet." })}
         </div>
-        <div class="card">
-          <h2>Alerts</h2>
-          ${
-            alerts.length
-              ? alerts.slice(0, 10).map(alertItem).join("")
-              : `<div class="empty-state">All clear — no alerts right now.</div>`
-          }
-        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
+        <h2>Alerts</h2>
+        ${
+          alerts.length
+            ? alerts.slice(0, 10).map(alertItem).join("")
+            : `<div class="empty-state">All clear — no alerts right now.</div>`
+        }
       </div>
     `;
 

@@ -43,6 +43,19 @@ export function quoteTotal(items) {
   return items.reduce((sum, i) => sum + quoteItemTotal(i), 0);
 }
 
+export function functionEstimated(functionId) {
+  const vendors = all(
+    `SELECT v.* FROM vendors v JOIN vendor_functions vf ON vf.vendor_id = v.id WHERE vf.function_id = ?`,
+    [functionId]
+  );
+  return vendors.reduce((sum, v) => sum + vendorFinalContractAmount(v), 0);
+}
+
+export function categoryEstimated(categoryName) {
+  const vendors = all("SELECT * FROM vendors WHERE category = ?", [categoryName]);
+  return vendors.reduce((sum, v) => sum + vendorFinalContractAmount(v), 0);
+}
+
 export function roomOccupancy(roomId) {
   const rows = all(
     `SELECT ra.*, g.full_name FROM room_allocations ra
@@ -69,17 +82,9 @@ export function dashboardTotals() {
     totalVendorOutstanding += s.outstanding;
   }
 
-  const expenseAgg = get("SELECT COALESCE(SUM(amount + tax),0) as total FROM expenses");
-  const totalActualExpense = Number(expenseAgg.total) || 0;
-
-  const expensePaidAgg = get(
-    "SELECT COALESCE(SUM(amount + tax),0) as total FROM expenses WHERE payment_status = 'Paid'"
-  );
-  const totalExpensePaid = Number(expensePaidAgg.total) || 0;
-
-  const totalPaid = totalVendorPaid + totalExpensePaid;
+  const totalPaid = totalVendorPaid;
   const totalEstimated = totalContract; // sum of vendor contract final amounts
-  const totalOutstanding = totalVendorOutstanding + (totalActualExpense - totalExpensePaid);
+  const totalOutstanding = totalVendorOutstanding;
 
   const guestCount = get("SELECT COUNT(*) as c FROM guests").c;
   const vendorCount = get("SELECT COUNT(*) as c FROM vendors").c;
@@ -94,7 +99,6 @@ export function dashboardTotals() {
     wedding,
     totalBudget,
     totalEstimated,
-    totalActualExpense,
     totalPaid,
     totalOutstanding,
     vendorCount,

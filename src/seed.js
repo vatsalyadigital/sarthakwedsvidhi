@@ -13,7 +13,7 @@ try {
   // ------------------------------------------------------------- Wipe any existing data (idempotent re-seed)
   for (const t of [
     "audit_logs", "documents", "room_allocations", "rooms", "hotels",
-    "guests", "guest_groups", "expenses", "vendor_payments",
+    "guests", "guest_groups", "vendor_payments",
     "vendor_quote_items", "vendor_quotes", "vendor_functions", "vendors",
     "functions", "users",
   ]) {

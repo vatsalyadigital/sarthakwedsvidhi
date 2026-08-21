@@ -8,7 +8,7 @@ import { canWrite, DOCUMENT_TYPES } from "../lib/constants.js";
 
 function linkedLabel(doc) {
   if (!doc.linked_type || !doc.linked_id) return "—";
-  const tables = { vendor: "vendors", guest: "guests", expense: "expenses", payment: "vendor_payments", function: "functions" };
+  const tables = { vendor: "vendors", guest: "guests", payment: "vendor_payments", function: "functions" };
   const table = tables[doc.linked_type];
   if (!table) return doc.linked_type;
   const row = get(`SELECT * FROM ${table} WHERE id = ?`, [doc.linked_id]);

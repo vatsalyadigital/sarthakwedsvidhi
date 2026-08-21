@@ -1,5 +1,5 @@
 import { all } from "./db.js";
-import { vendorSummary } from "./calc.js";
+import { vendorSummary, categoryEstimated } from "./calc.js";
 import { formatINR, formatDate } from "./format.js";
 
 function todayISO() {
@@ -31,15 +31,15 @@ export function computeAlerts() {
     });
   }
 
-  // Over-budget categories
-  const cats = all(`SELECT * FROM expense_categories`);
+  // Over-budget categories (estimated cost = final vendor rates in that category)
+  const cats = all(`SELECT * FROM budget_categories`);
   for (const c of cats) {
     if (!c.budget) continue;
-    const spent = all(`SELECT COALESCE(SUM(amount+tax),0) as t FROM expenses WHERE category = ?`, [c.name])[0].t;
-    if (spent > c.budget) {
+    const estimated = categoryEstimated(c.name);
+    if (estimated > c.budget) {
       alerts.push({
         severity: "critical",
-        text: `Over budget: ${c.name} — spent ${formatINR(spent)} of ${formatINR(c.budget)}`,
+        text: `Over budget: ${c.name} — estimated ${formatINR(estimated)} of ${formatINR(c.budget)}`,
         href: `/budget`,
       });
     }

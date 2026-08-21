@@ -2,6 +2,7 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
+import { VENDOR_CATEGORIES } from "./constants.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DATA_DIR lets you point the database at a mounted persistent volume in production
@@ -57,11 +58,10 @@ CREATE TABLE IF NOT EXISTS functions (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE TABLE IF NOT EXISTS expense_categories (
+CREATE TABLE IF NOT EXISTS budget_categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
-  budget REAL DEFAULT 0,
-  estimated REAL DEFAULT 0
+  budget REAL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS vendors (
@@ -120,22 +120,6 @@ CREATE TABLE IF NOT EXISTS vendor_payments (
   amount REAL NOT NULL,
   mode TEXT NOT NULL DEFAULT 'Bank Transfer',
   transaction_ref TEXT,
-  paid_by TEXT,
-  notes TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS expenses (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  date TEXT NOT NULL,
-  category TEXT NOT NULL DEFAULT 'Miscellaneous',
-  vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL,
-  function_id INTEGER REFERENCES functions(id) ON DELETE SET NULL,
-  description TEXT,
-  amount REAL NOT NULL DEFAULT 0,
-  tax REAL NOT NULL DEFAULT 0,
-  payment_status TEXT NOT NULL DEFAULT 'Unpaid',
-  payment_method TEXT,
   paid_by TEXT,
   notes TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -233,9 +217,6 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_expenses_vendor ON expenses(vendor_id);
-CREATE INDEX IF NOT EXISTS idx_expenses_function ON expenses(function_id);
-CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
 CREATE INDEX IF NOT EXISTS idx_payments_vendor ON vendor_payments(vendor_id);
 CREATE INDEX IF NOT EXISTS idx_guests_group ON guests(group_id);
 CREATE INDEX IF NOT EXISTS idx_rooms_hotel ON rooms(hotel_id);
@@ -264,14 +245,9 @@ if (!db.prepare("SELECT id FROM wedding WHERE id = 1").get()) {
   );
 }
 
-if (!db.prepare("SELECT id FROM expense_categories LIMIT 1").get()) {
-  const defaults = [
-    "Food", "Decoration", "Venue", "Accommodation", "Transport",
-    "Photography", "Makeup", "Clothing", "Gifts", "Jewellery",
-    "Entertainment", "Invitations", "Miscellaneous",
-  ];
-  const stmt = db.prepare("INSERT INTO expense_categories (name, budget, estimated) VALUES (?, 0, 0)");
-  for (const name of defaults) stmt.run(name);
+if (!db.prepare("SELECT id FROM budget_categories LIMIT 1").get()) {
+  const stmt = db.prepare("INSERT INTO budget_categories (name, budget) VALUES (?, 0)");
+  for (const name of VENDOR_CATEGORIES) stmt.run(name);
 }
 
 // ---------------------------------------------------------------------------

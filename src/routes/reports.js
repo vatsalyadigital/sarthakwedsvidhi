@@ -14,9 +14,8 @@ export function registerReportRoutes(router) {
     const totals = dashboardTotals();
 
     const links = [
-      { title: "Financial Report", href: "/reports/financial", desc: "Budget, estimate, actual, paid, outstanding." },
+      { title: "Financial Report", href: "/reports/financial", desc: "Budget, estimated cost, paid, outstanding." },
       { title: "Vendor Report", href: "/reports/vendors", desc: "Contract, paid and outstanding per vendor." },
-      { title: "Expense Report", href: "/reports/expenses", desc: "Every expense by date, category, vendor and function." },
       { title: "Guest Report", href: "/reports/guests", desc: "Name, family, mobile, arrival, departure, room." },
       { title: "Room Report", href: "/reports/rooms", desc: "Room, hotel, occupants, check-in, check-out, status." },
       { title: "KYC Report", href: "/reports/kyc", desc: "Guest, KYC status, submission date. Restricted access." },
@@ -50,7 +49,6 @@ export function registerReportRoutes(router) {
         <div class="kv-list">
           <div class="kv-row"><span class="kv-label">Total Wedding Budget</span><span class="kv-value">${formatINR(t.totalBudget)}</span></div>
           <div class="kv-row"><span class="kv-label">Total Estimated (vendor contracts)</span><span class="kv-value">${formatINR(t.totalEstimated)}</span></div>
-          <div class="kv-row"><span class="kv-label">Total Actual Expense</span><span class="kv-value">${formatINR(t.totalActualExpense)}</span></div>
           <div class="kv-row"><span class="kv-label">Total Paid</span><span class="kv-value">${formatINR(t.totalPaid)}</span></div>
           <div class="kv-row"><span class="kv-label">Total Outstanding</span><span class="kv-value">${formatINR(t.totalOutstanding)}</span></div>
         </div>
@@ -88,46 +86,6 @@ export function registerReportRoutes(router) {
       { label: "Outstanding", value: "outstanding" }, { label: "Status", value: "status" },
     ]);
     sendCsv(ctx.res, "vendor-report.csv", csv);
-  });
-
-  // ---------------------------------------------------------------- Expenses
-  function expenseReportRows(query) {
-    let sql = `SELECT e.*, v.name as vendor_name, f.name as function_name FROM expenses e
-      LEFT JOIN vendors v ON v.id=e.vendor_id LEFT JOIN functions f ON f.id=e.function_id WHERE 1=1`;
-    const params = [];
-    if (query.vendor_id) { sql += " AND e.vendor_id=?"; params.push(query.vendor_id); }
-    if (query.category) { sql += " AND e.category=?"; params.push(query.category); }
-    if (query.function_id) { sql += " AND e.function_id=?"; params.push(query.function_id); }
-    if (query.payment_status) { sql += " AND e.payment_status=?"; params.push(query.payment_status); }
-    if (query.payment_method) { sql += " AND e.payment_method=?"; params.push(query.payment_method); }
-    if (query.from) { sql += " AND e.date>=?"; params.push(query.from); }
-    if (query.to) { sql += " AND e.date<=?"; params.push(query.to); }
-    sql += " ORDER BY e.date DESC";
-    return all(sql, params);
-  }
-
-  router.get("/reports/expenses", (ctx) => {
-    const user = requireUser(ctx);
-    if (!user) return;
-    const rows = expenseReportRows(ctx.query);
-    const content = `
-      <div class="page-head"><h1>Expense Report</h1><a href="/reports/expenses.csv" class="btn btn-secondary btn-sm">Export CSV</a></div>
-      <div class="card"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Category</th><th>Vendor</th><th>Function</th><th class="num">Amount</th></tr></thead>
-      <tbody>${rows.map((r) => `<tr><td>${formatDate(r.date)}</td><td>${escapeHtml(r.category)}</td><td>${escapeHtml(r.vendor_name || "—")}</td><td>${escapeHtml(r.function_name || "—")}</td><td class="num">${formatINR(r.amount + r.tax)}</td></tr>`).join("") || `<tr><td colspan="5">${emptyState("No expenses.")}</td></tr>`}</tbody></table></div></div>
-    `;
-    sendHtml(ctx.res, page({ user, active: "reports", title: "Expense Report", content }));
-  });
-
-  router.get("/reports/expenses.csv", (ctx) => {
-    const user = requireUser(ctx);
-    if (!user) return;
-    const rows = expenseReportRows(ctx.query).map((r) => ({ ...r, total: r.amount + r.tax }));
-    const csv = toCsv(rows, [
-      { label: "Date", value: "date" }, { label: "Category", value: "category" },
-      { label: "Vendor", value: "vendor_name" }, { label: "Function", value: "function_name" },
-      { label: "Amount", value: "total" }, { label: "Status", value: "payment_status" },
-    ]);
-    sendCsv(ctx.res, "expense-report.csv", csv);
   });
 
   // ---------------------------------------------------------------- Guests

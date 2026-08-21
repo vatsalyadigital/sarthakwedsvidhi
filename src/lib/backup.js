@@ -1,9 +1,9 @@
 import { db, all, tx } from "./db.js";
 
 const TABLES = [
-  "users", "wedding", "functions", "expense_categories", "vendors",
+  "users", "wedding", "functions", "budget_categories", "vendors",
   "vendor_functions", "vendor_quotes", "vendor_quote_items", "vendor_payments",
-  "expenses", "guest_groups", "guests", "hotels", "rooms", "room_allocations",
+  "guest_groups", "guests", "hotels", "rooms", "room_allocations",
   "documents", "audit_logs",
 ];
 
