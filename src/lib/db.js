@@ -2,7 +2,6 @@ import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { VENDOR_CATEGORIES } from "./constants.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // DATA_DIR lets you point the database at a mounted persistent volume in production
@@ -56,12 +55,6 @@ CREATE TABLE IF NOT EXISTS functions (
   budget REAL DEFAULT 0,
   notes TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS budget_categories (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE,
-  budget REAL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS vendors (
@@ -236,11 +229,6 @@ if (!db.prepare("SELECT id FROM wedding WHERE id = 1").get()) {
     30,
     ""
   );
-}
-
-if (!db.prepare("SELECT id FROM budget_categories LIMIT 1").get()) {
-  const stmt = db.prepare("INSERT INTO budget_categories (name, budget) VALUES (?, 0)");
-  for (const name of VENDOR_CATEGORIES) stmt.run(name);
 }
 
 // ---------------------------------------------------------------------------

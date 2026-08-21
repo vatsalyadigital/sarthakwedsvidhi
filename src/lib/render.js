@@ -42,7 +42,6 @@ export const NAV_ITEMS = [
   { key: "guests", label: "Guests", href: "/guests", icon: "users" },
   { key: "rooms", label: "Rooms", href: "/rooms", icon: "bed" },
   { key: "functions", label: "Functions / Events", href: "/functions", icon: "calendarDays" },
-  { key: "budget", label: "Budget", href: "/budget", icon: "pieChart" },
   { key: "reports", label: "Reports", href: "/reports", icon: "fileText" },
   { key: "documents", label: "Documents", href: "/documents", icon: "folder" },
   { key: "settings", label: "Settings", href: "/settings", icon: "settings" },

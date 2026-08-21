@@ -1,5 +1,5 @@
 import { all } from "./db.js";
-import { vendorSummary, categoryEstimated } from "./calc.js";
+import { vendorSummary } from "./calc.js";
 import { formatINR, formatDate } from "./format.js";
 
 function todayISO() {
@@ -29,20 +29,6 @@ export function computeAlerts() {
       text: `${overdue ? "Overdue" : "Due"}: ${v.name} — ${formatINR(v.next_payment_amount)} on ${formatDate(v.next_payment_due_date)}`,
       href: `/vendors/${v.id}`,
     });
-  }
-
-  // Over-budget categories (estimated cost = final vendor rates in that category)
-  const cats = all(`SELECT * FROM budget_categories`);
-  for (const c of cats) {
-    if (!c.budget) continue;
-    const estimated = categoryEstimated(c.name);
-    if (estimated > c.budget) {
-      alerts.push({
-        severity: "critical",
-        text: `Over budget: ${c.name} — estimated ${formatINR(estimated)} of ${formatINR(c.budget)}`,
-        href: `/budget`,
-      });
-    }
   }
 
   // Unallocated guests (room required, coming, no active allocation)

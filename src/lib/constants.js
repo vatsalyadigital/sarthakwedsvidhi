@@ -47,7 +47,6 @@ export const ROLE_LABELS = {
 export const ROLE_PERMISSIONS = {
   vendors: ["SUPER_ADMIN", "VENDOR_MANAGER"],
   payments: ["SUPER_ADMIN", "FINANCE", "VENDOR_MANAGER"],
-  budget: ["SUPER_ADMIN", "FINANCE"],
   guests: ["SUPER_ADMIN", "GUEST_MANAGER"],
   rooms: ["SUPER_ADMIN", "GUEST_MANAGER"],
   functions: ["SUPER_ADMIN", "FINANCE", "GUEST_MANAGER", "VENDOR_MANAGER"],

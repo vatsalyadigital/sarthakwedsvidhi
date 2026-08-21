@@ -52,11 +52,6 @@ export function functionEstimated(functionId) {
   return vendors.reduce((sum, v) => sum + vendorFinalContractAmount(v), 0);
 }
 
-export function categoryEstimated(categoryName) {
-  const vendors = all("SELECT * FROM vendors WHERE category = ?", [categoryName]);
-  return vendors.reduce((sum, v) => sum + vendorFinalContractAmount(v), 0);
-}
-
 export function roomOccupancy(roomId) {
   const rows = all(
     `SELECT ra.*, g.full_name FROM room_allocations ra

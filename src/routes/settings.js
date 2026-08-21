@@ -115,7 +115,7 @@ export function registerSettingsRoutes(router) {
         <p class="small secondary-text">Roles control what each teammate can create or edit. Everyone with an account can view all modules; write access is scoped as below.</p>
         <div class="kv-list">
           <div class="kv-row"><span class="kv-label">Super Admin</span><span class="kv-value">Full access to everything</span></div>
-          <div class="kv-row"><span class="kv-label">Finance</span><span class="kv-value">Payments, budget, reports</span></div>
+          <div class="kv-row"><span class="kv-label">Finance</span><span class="kv-value">Payments, reports</span></div>
           <div class="kv-row"><span class="kv-label">Guest Manager</span><span class="kv-value">Guests, rooms</span></div>
           <div class="kv-row"><span class="kv-label">Vendor Manager</span><span class="kv-value">Vendors, contracts, payments</span></div>
           <div class="kv-row"><span class="kv-label">Viewer</span><span class="kv-value">Read-only across all modules</span></div>

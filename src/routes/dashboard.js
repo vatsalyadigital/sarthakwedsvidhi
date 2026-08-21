@@ -1,9 +1,9 @@
 import { all, get } from "../lib/db.js";
 import { requireUser } from "../lib/guard.js";
 import { sendHtml } from "../lib/router.js";
-import { page, card, statTile, hbarChart, stackedBar, alertItem, CHART_COLORS, icon } from "../lib/render.js";
+import { page, statTile, hbarChart, stackedBar, alertItem, CHART_COLORS, icon } from "../lib/render.js";
 import { formatINR, formatDate } from "../lib/format.js";
-import { dashboardTotals, vendorSummary, categoryEstimated } from "../lib/calc.js";
+import { dashboardTotals, vendorSummary } from "../lib/calc.js";
 import { computeAlerts } from "../lib/alerts.js";
 
 export function registerDashboardRoutes(router) {
@@ -29,7 +29,7 @@ export function registerDashboardRoutes(router) {
 
     const stats = [
       { label: "Total Wedding Budget", value: formatINR(totals.totalBudget), sub: wedding?.wedding_date ? formatDate(wedding.wedding_date) + (daysToGo ? " · " + daysToGo : "") : "", href: "/wedding" },
-      { label: "Total Estimated Cost", value: formatINR(totals.totalEstimated), sub: "Sum of final vendor contracts", accent: "gold", href: "/budget" },
+      { label: "Total Estimated Cost", value: formatINR(totals.totalEstimated), sub: "Sum of final vendor contracts", accent: "gold", href: "/reports/financial" },
       { label: "Total Paid", value: formatINR(totals.totalPaid), sub: "Vendor payments", accent: "good", href: "/reports/financial" },
       { label: "Total Outstanding", value: formatINR(totals.totalOutstanding), sub: "Still owed", accent: totals.totalOutstanding > 0 ? "warning" : "good", href: "/reports/financial" },
       { label: "Vendors", value: String(totals.vendorCount), sub: "onboarded", href: "/vendors" },
@@ -39,12 +39,6 @@ export function registerDashboardRoutes(router) {
       { label: "Upcoming Payments", value: String(upcomingPayments), sub: "due soon", href: "/vendors" },
       { label: "Upcoming Functions", value: String(upcomingFunctions), sub: "scheduled ahead", href: "/functions" },
     ];
-
-    // Estimated cost by category (final vendor rates, grouped by vendor category)
-    const byCategory = all(`SELECT DISTINCT category FROM vendors`)
-      .map((r) => ({ label: r.category, value: categoryEstimated(r.category), href: `/vendors?category=${encodeURIComponent(r.category)}` }))
-      .filter((r) => r.value > 0)
-      .sort((a, b) => b.value - a.value);
 
     // Vendor-wise spending (final contract amount per vendor)
     const vendors = all(`SELECT * FROM vendors`);
@@ -71,16 +65,6 @@ export function registerDashboardRoutes(router) {
 
       <div class="grid grid-2">
         <div class="card">
-          <h2><a href="/budget" class="card-title-link">Budget vs Estimated Cost</a></h2>
-          ${hbarChart(
-            [
-              { label: "Budget", value: totals.totalBudget, color: "#c9bda0" },
-              { label: "Estimated", value: totals.totalEstimated, color: totals.totalEstimated > totals.totalBudget ? CHART_COLORS.critical : CHART_COLORS.good },
-            ],
-            { emptyText: "Set a wedding budget to see this chart." }
-          )}
-        </div>
-        <div class="card">
           <h2><a href="/reports/financial" class="card-title-link">Paid vs Outstanding</a></h2>
           ${stackedBar({
             segments: [
@@ -88,13 +72,6 @@ export function registerDashboardRoutes(router) {
               { label: "Outstanding", value: totals.totalOutstanding, color: CHART_COLORS.warning },
             ],
           })}
-        </div>
-      </div>
-
-      <div class="grid grid-2" style="margin-top:18px;">
-        <div class="card">
-          <h2><a href="/budget" class="card-title-link">Estimated Cost by Category</a></h2>
-          ${hbarChart(byCategory, { color: CHART_COLORS.blue, emptyText: "No vendors with a category yet." })}
         </div>
         <div class="card">
           <h2><a href="/vendors" class="card-title-link">Vendor-wise Spending</a></h2>
